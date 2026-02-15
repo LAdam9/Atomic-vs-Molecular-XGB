@@ -1,30 +1,29 @@
 #!/bin/bash
-#SBATCH -J "aver_rest"
-#SBATCH --array=1-600%50      # Ugyanaz a tömbméret
-#SBATCH --partition=short       # *** MEMÓRIA JAVÍTÁS: Partíció váltása, ha a "short" a szűk keresztmetszet.
+#SBATCH -J "aver"
+#SBATCH --array=1-600%50      
+#SBATCH --partition=short       
 #SBATCH --nodes=1              
 #SBATCH --ntasks-per-node=1    
-#SBATCH --cpus-per-task=8     # Minden tasknak 16 CPU magot adunk
+#SBATCH --cpus-per-task=8     
 #SBATCH -o logs_avg/soap_xgb_avg_%A_%a.out
 #SBATCH -e logs_avg/soap_xgb_avg_%A_%a.err
 #SBATCH --account=p1156-25-1 
 #SBATCH --mem-per-cpu=16GB
 
 # Fő mappák
-OUTPUT_BASE_FOLDER="/home/adam/atoms_soap_xgb_allH_invivovitro_2023/grid_search_all_opt/aver"
+OUTPUT_BASE_FOLDER="OUT_FOLD"
 mkdir -p logs_avg
 mkdir -p "$OUTPUT_BASE_FOLDER"
 
-# Aktiváljuk a környezetet (ha a Singularity belsejében nincs aktiválva)
-# source /home/adam/Schnet_atoms_embedding/Jancsi_SP/embeding/my_new_env/bin/activate
 
-# --- 1. PARAMÉTER TÉR DEFINÍCIÓJA ---
+
+# --- 1. PARAMETERS (Optimization)---
 RCUTS=(2.0 6.0 10.0 20.0)
 N_L_COMBS=("1 0" "1 1" "2 1" "2 2" "3 3" "4 4" "5 5" "8 7" "9 8" "12 10")
 SIGMAS=(0.5 1.0 2.0)
 SPLITS=(1 2 3 4 5)
 
-# (Paraméter-kalkulációk, változatlanok)
+
 NUM_RCUTS=${#RCUTS[@]}
 NUM_NL=${#N_L_COMBS[@]}
 NUM_SIGMAS=${#SIGMAS[@]}
@@ -38,17 +37,16 @@ fi
 
 TASK_ID=$(( SLURM_ARRAY_TASK_ID - 1 ))
 
-# --- 2. INDEX SZÁMÍTÁSOK ---
+# --- 2. INDEX CALCULATION ---
 G_INDEX=$(( TASK_ID % NUM_SPLITS )); SPLIT=${SPLITS[G_INDEX]}; TASK_ID=$(( TASK_ID / NUM_SPLITS ))
 S_INDEX=$(( TASK_ID % NUM_SIGMAS )); SIGMA=${SIGMAS[S_INDEX]}; TASK_ID=$(( TASK_ID / NUM_SIGMAS ))
 NL_INDEX=$(( TASK_ID % NUM_NL )); NL_PAIR=${N_L_COMBS[NL_INDEX]}; NMAX=$(echo $NL_PAIR | cut -d' ' -f1); LMAX=$(echo $NL_PAIR | cut -d' ' -f2); TASK_ID=$(( TASK_ID / NUM_NL ))
 R_INDEX=$(( TASK_ID % NUM_RCUTS )); RCUT=${RCUTS[R_INDEX]}
 
 
-# --- 3. CHECKPOINT ELLENŐRZÉS (AZ ÚJ, KRITIKUS RÉSZ) ---
+# --- 3. CHECKPOINT ---
 
-# Létrehozzuk a várható output fájl nevét
-FILE_TAG="rcut${RCUT}_nmax${NMAX}_lmax${LMAX}_sigma${SIGMA}_split${SPLIT}_avg"
+FILE_TAG="rcut${RCUT}_nmax${NMAX}_lmax${LMAX}_sigma${SIGMA}_split${SPLIT}_mol"
 OUTPUT_LOG_FILE="$OUTPUT_BASE_FOLDER/log_${FILE_TAG}.log"
 
 echo "----------------------------------------------------------------"
@@ -58,17 +56,15 @@ echo "Expected Log: $OUTPUT_LOG_FILE"
 echo "----------------------------------------------------------------"
 
 
-# Ellenőrizzük, hogy a logfájl létezik-e ÉS tartalmazza-e a sikeres befejezést jelző szöveget
 if [ -f "$OUTPUT_LOG_FILE" ] && grep -q "Final Test RMSE:" "$OUTPUT_LOG_FILE"; then
     echo "✅ Task $SLURM_ARRAY_TASK_ID already completed successfully. Skipping."
-    exit 0 # Kilépés 0-val (siker), a Slurm ezt nem jelöli hibának.
-fi
+    exit 0 
 
 echo "▶️ Task $SLURM_ARRAY_TASK_ID is pending or failed previously. Starting computation..."
 
-# --- 4. Környezet Beállítása és Futtatás ---
+# --- 4. Environment Setup and Run ---
 
 module load singularity
-singularity exec /storage-apps/software/containers/xgboost/tf_gpu_xgboost_04_23.sif python -u soap_avg_grid.py $RCUT $NMAX $LMAX $SIGMA $SPLIT
+singularity exec /storage-apps/software/containers/xgboost/tf_gpu_xgboost_04_23.sif python -u mol_xgb.py $RCUT $NMAX $LMAX $SIGMA $SPLIT
 
 echo "Job $SLURM_ARRAY_TASK_ID finished."
