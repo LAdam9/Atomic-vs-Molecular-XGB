@@ -39,16 +39,18 @@ FILE_TAG = f"rcut{R}_nmax{N}_lmax{L}_sigma{S}_split{G}_mol"
 print(f"--- Starting Grid Job: {FILE_TAG} ---")
 
 # --- 2. SOAP PREPARATION AND SPECIES DEFINITION ---
-
+#this try part is not needed if species is defined:
+# species = set(['H','C','N',...])
 try:
-    invivo = read('/home/adam/compatible_invivo_vitro/data_splits/in-vivo.xyz', index=":")
+    train_molecules_temp = read('train.xyz', index=":")
+    val_molecules_temp = read('val.xyz', index=":")
     test_molecules_temp = read(TEST_DATA_PATH, index=":") 
-    all_molecules = invivo + test_molecules_temp
+    all_molecules = train_molecules_temp + val_molecules_temp + test_molecules_temp
     species = set([atom for structure in all_molecules for atom in structure.get_chemical_symbols()])
-    del invivo, all_molecules, test_molecules_temp
+    del all_molecules, train_molecules_temp, val_molecules_temp, test_molecules_temp
     gc.collect()
 except FileNotFoundError:
-    print("FATAL ERROR: Az adatok (.xyz fájlok) nem találhatók a megadott útvonalakon.")
+    print("FATAL ERROR: The data (.xyz files) cannot be found in the specified paths.")
     sys.exit(1)
 
 # Initialize SOAP (average="outer" and sparse=False due to Sklearn normalize)
