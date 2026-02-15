@@ -11,18 +11,18 @@ import time
 import sys
 import gc
 
-# --- GLOBÁLIS KONFIGURÁCIÓ ÉS PARANCSSORI BEOLVASÁS ---
+# --- GLOBAL CONFIGURATION ---
 
-TEST_DATA_PATH = '/home/adam/compatible_invivo_vitro/data_splits/in-vitro-only.xyz'
+TEST_DATA_PATH = 'test.xyz'
 # Az eredmények ide mennek
-OUTPUT_BASE_FOLDER = "/home/adam/atoms_soap_xgb_allH_invivovitro_2023/grid_search_all_opt/aver"
+OUTPUT_BASE_FOLDER = "OUT_FOLD"
 os.makedirs(OUTPUT_BASE_FOLDER, exist_ok=True)
-N_JOBS = 8 # CPU magok száma a SOAP számításhoz
+N_JOBS = 8 # Number of CPU cores for SOAP computation
 
-# 1. PARAMÉTEREK BEOLVASÁSA
+# 1. PARAMETERS
 if len(sys.argv) != 6:
-    print("FATAL ERROR: A szükséges 5 parancssori argumentum hiányzik.")
-    print("Használat: python soap_avg_grid.py <rcut> <nmax> <lmax> <sigma> <split_id>")
+    print("FATAL ERROR: Required 5 command line arguments are missing.")
+    print("Usage: python mol_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>")
     sys.exit(1)
 
 try:
@@ -32,13 +32,13 @@ try:
     S = float(sys.argv[4])
     G = int(sys.argv[5])
 except ValueError:
-    print("FATAL ERROR: A paraméterek érvénytelenek (típushiba).")
+    print("FATAL ERROR: The parameters are invalid (type error).")
     sys.exit(1)
 
-FILE_TAG = f"rcut{R}_nmax{N}_lmax{L}_sigma{S}_split{G}_avg"
+FILE_TAG = f"rcut{R}_nmax{N}_lmax{L}_sigma{S}_split{G}_mol"
 print(f"--- Starting Grid Job: {FILE_TAG} ---")
 
-# --- 2. SOAP ELŐKÉSZÍTÉS ÉS SPECIES DEFINIÁLÁSA ---
+# --- 2. SOAP PREPARATION AND SPECIES DEFINITION ---
 
 try:
     invivo = read('/home/adam/compatible_invivo_vitro/data_splits/in-vivo.xyz', index=":")
@@ -51,29 +51,29 @@ except FileNotFoundError:
     print("FATAL ERROR: Az adatok (.xyz fájlok) nem találhatók a megadott útvonalakon.")
     sys.exit(1)
 
-# SOAP inicializálása (average="outer" és sparse=False a Sklearn normalize miatt)
-# A SOAP az AVERAGE="OUTER" miatt dense (sűrű) mátrixot ad, ezért a korábbi sparse kód nem kell.
+# Initialize SOAP (average="outer" and sparse=False due to Sklearn normalize)
+# SOAP gives a dense matrix due to AVERAGE="OUTER", so the previous sparse code is not needed.
 soap_calculator = SOAP(
     species=list(species), periodic=False, rcut=R, nmax=N, lmax=L, sigma=S,
     average='outer', dtype="float32", sparse=False # <-- dense SOAP
 )
 
-# --- 3. ADAT ELŐKÉSZÍTŐ FÜGGVÉNY (ÁTLAGOLT SOAP-hoz) ---
+# --- 3. DATA PREPARATION FUNCTION (FOR AVERAGE SOAP) ---
 
 def prepare_data_avg_output(molecules: List[Atoms], soap_calculator: SOAP) -> Tuple[xgb.DMatrix, List[str], List[float]]:
-    """Kiszámolja az átlagolt SOAP-ot, normalizálja és DMatrix-et készít belőle."""
+    """Calculates the averaged SOAP, normalizes it and creates a DMatrix from it."""
     
-    # 1. Energiák és nevek kinyerése
+    # 1. Extracting energies and names
     energies = [mol.info['energy'] for mol in molecules]
     molecule_names = [mol.info.get('name', f'Mol_{i}') for i, mol in enumerate(molecules)]
     
-    # 2. SOAP számítás
+    # 2. SOAP computation
     X_np = soap_calculator.create(molecules, n_jobs=N_JOBS)
     
-    # 3. L2 Normalizáció (Sklearn normalize használata)
+    # 3. L2 Normalization
     X_normalized = normalize(X_np, norm='l2', axis=1)
 
-    # 4. DMatrix elkészítése
+    # 4. DMatrix preparation
     dmatrix = xgb.DMatrix(X_normalized, label=np.array(energies, dtype=np.float32))
 
     del X_np, X_normalized, energies
@@ -81,18 +81,18 @@ def prepare_data_avg_output(molecules: List[Atoms], soap_calculator: SOAP) -> Tu
 
     return dmatrix, molecule_names
 
-# --- 4. FŐ VÉGREHAJTÓ LOGIKA (A Grid Task) ---
+# --- 4. MAIN EXECUTION LOGIC (A Grid Task) ---
 
 def run_single_job(g: int):
     
-    # ------------------ TRÉNING / VALIDÁCIÓS FÁZIS -------------------
+    # ------------------ TRAINING / VALIDATION PHASE -------------------
 
     # 1. Train Data Load
     t_train_load_start = time.time()
-    train_molecules = read(f'/home/adam/compatible_invivo_vitro/data_splits/in-vivo_train{g}.xyz', index=":")
+    train_molecules = read(f'train{g}.xyz', index=":")
     t_train_load_end = time.time()
 
-    # 2. Train SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 2. Train SOAP + DMatrix Prep
     t_train_soap_start = time.time()
     dtrain, train_mol_names = prepare_data_avg_output(train_molecules, soap_calculator)
     t_train_soap_end = time.time()
@@ -101,17 +101,17 @@ def run_single_job(g: int):
 
     # 3. Validation Data Load
     t_val_load_start = time.time()
-    val_molecules = read(f'/home/adam/compatible_invivo_vitro/data_splits/in-vivo_val{g}.xyz', index=":")
+    val_molecules = read(f'val{g}.xyz', index=":")
     t_val_load_end = time.time()
     
-    # 4. Validation SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 4. Validation SOAP + DMatrix Prep
     t_val_soap_start = time.time()
     dval, val_mol_names = prepare_data_avg_output(val_molecules, soap_calculator)
     t_val_soap_end = time.time()
     
     del val_molecules; gc.collect() 
 
-    # 5. Modell Betanítás (Tréning)
+    # 5. Modell Training
     params = {
         "tree_method": "hist", "max_depth": 7, "learning_rate": 0.015, "gamma": 1,
         "min_child_weight": 3, "subsample": 0.75, "colsample_bytree": 1,
@@ -127,19 +127,19 @@ def run_single_job(g: int):
     del dtrain, dval; gc.collect()
 
 
-    # ------------------ TESZT FÁZIS -------------------
+    # ------------------ TESTING PHASE -------------------
 
-    # 6. TEST ADAT BETÖLTÉS 
+    # 6. TEST DATA LOAD 
     t_test_load_start = time.time()
     test_molecules = read(TEST_DATA_PATH, index=":") 
     t_test_load_end = time.time()
     
-    # 7. TEST SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 7. TEST SOAP + DMatrix Prep
     t_test_soap_start = time.time() 
     dtest, test_mol_names = prepare_data_avg_output(test_molecules, soap_calculator)
     t_test_soap_end = time.time() 
     
-    # Kinyerjük a teszt energiákat is az MSE számításhoz
+    # We also extract the test energies for the MSE calculation
     test_energies = [mol.info['energy'] for mol in test_molecules]
 
     # 8. Test Prediction
@@ -154,12 +154,12 @@ def run_single_job(g: int):
     current_test_rmse = np.sqrt(mean_squared_error(test_energies, predictions))
     t_rmse_end = time.time() 
     
-    # ------------------ MENTÉS FÁZIS -------------------
+    # ------------------ SAVING PHASE -------------------
 
-    # 10. EREDMÉNYEK MENTÉSE (Log, CSV)
+    # 10. SAVE RESULTS (Log, CSV)
     t_save_start = time.time() 
 
-    # 1. Log fájl (Összefoglaló + Idők)
+    # 1. Log files (Summary + Time)
     output_log_filename = os.path.join(OUTPUT_BASE_FOLDER, f"log_{FILE_TAG}.log")
     with open(output_log_filename, "w") as f:
         f.write(f"Parameters: R={R}, N={N}, L={L}, S={S}, Split={G}\n")
@@ -177,7 +177,7 @@ def run_single_job(g: int):
         f.write(f" 8. Test Prediction: {t_pred_end - t_pred_start:.2f}\n")
         f.write(f" 9. Test RMSE Calculation: {t_rmse_end - t_rmse_start:.2f}\n")
     
-    # 2. CSV Fájl (Molekulánkénti predikció)
+    # 2. CSV File (Molecule prediction)
     output_csv_filename = os.path.join(OUTPUT_BASE_FOLDER, f"predictions_{FILE_TAG}.csv")
     with open(output_csv_filename, "w") as f:
         f.write("name;expected;predicted\n")
@@ -189,7 +189,7 @@ def run_single_job(g: int):
 
     t_save_end = time.time()
     
-    # Log frissítése a mentési idővel
+    # Update log with save time
     with open(output_log_filename, "a") as f:
          f.write(f"10. File Saving (CSV, Log): {t_save_end - t_save_start:.2f}\n")
     
