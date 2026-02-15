@@ -14,7 +14,6 @@ import gc
 # --- GLOBAL CONFIGURATION ---
 
 TEST_DATA_PATH = 'test.xyz'
-# Az eredmények ide mennek
 OUTPUT_BASE_FOLDER = "OUT_FOLD"
 os.makedirs(OUTPUT_BASE_FOLDER, exist_ok=True)
 N_JOBS = 8 # Number of CPU cores for SOAP computation
