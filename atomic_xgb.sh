@@ -17,9 +17,9 @@ mkdir -p "$OUTPUT_BASE_FOLDER"
 
 
 # --- 1. PARAMETERERS ---
-RCUTS=(6.0) #(2,3,4,5,6,...)
-N_L_COMBS=("2 1") #("1 0","2 1","3 0","5 5",...)
-SIGMAS=(0.5) #(0.5,1,2,3,...)
+RCUTS=(6.0) #(2 3 4 5 6 ...)
+N_L_COMBS=("2 1") #("1 0" "2 1" "3 0" "5 5" ...)
+SIGMAS=(0.5) #(0.5 1 2 3 ...)
 SPLITS=(1 2 3 4 5)
 
 # Parameter-calculationk
