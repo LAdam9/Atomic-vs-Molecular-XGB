@@ -7,23 +7,23 @@ from scipy.sparse import vstack as sparse_vstack, csr_matrix
 from scipy.sparse.linalg import norm as sparse_norm 
 import os
 import time
-import gc # Garbage Collector
+import gc 
 from ase.io import read
 from ase import Atoms
-import sys # Parancssori argumentumokhoz
+import sys 
 
-# --- GLOBÁLIS KONFIGURÁCIÓ ÉS PARANCSSORI BEOLVASÁS ---
+# --- GLOBAl CONFIGURATION ---
 
-TEST_DATA_PATH = '/home/adam/compatible_invivo_vitro/data_splits/in-vitro-only.xyz'
-OUTPUT_BASE_FOLDER = "/home/adam/atoms_soap_xgb_allH_invivovitro_2023/grid_search_all_opt"
+TEST_DATA_PATH = 'test.xyz'
+OUTPUT_BASE_FOLDER = "OUT_FOLD"
 os.makedirs(OUTPUT_BASE_FOLDER, exist_ok=True)
 LAMBDA = 0 
 N_JOBS = 8 
 
-# 1. PARAMÉTEREK BEOLVASÁSA
+# 1. PARAMETERS
 if len(sys.argv) != 6:
-    print("FATAL ERROR: A szükséges 5 parancssori argumentum hiányzik.")
-    print("Használat: python soap_xgb_grid.py <rcut> <nmax> <lmax> <sigma> <split_id>")
+    print("FATAL ERROR: The required 5 command line arguments are missing.")
+    print("Usage: python atomic_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>")
     sys.exit(1)
 
 try:
@@ -33,23 +33,25 @@ try:
     S = float(sys.argv[4])
     G = int(sys.argv[5])
 except ValueError:
-    print("FATAL ERROR: A paraméterek érvénytelenek (típushiba).")
+    print("FATAL ERROR: The parameters are invalid (type error).")
     sys.exit(1)
 
-FILE_TAG = f"rcut{R}_nmax{N}_lmax{L}_sigma{S}_split{G}_sparse_colsamplebytree1"
+FILE_TAG = f"rcut{R}_nmax{N}_lmax{L}_sigma{S}_split{G}_atomic"
 print(f"--- Starting Grid Job: {FILE_TAG} ---")
 
-# --- 2. SOAP ELŐKÉSZÍTÉS ÉS SPECIES DEFINIÁLÁSA ---
-
+# --- 2. SOAP PREPARATION ---
+#this try part is not needed if species is defined:
+# species = set(['H','C','N',...])
 try:
-    invivo = read('/home/adam/compatible_invivo_vitro/data_splits/in-vivo.xyz', index=":")
+    train_molecules_temp = read('train.xyz', index=":")
+    val_molecules_temp = read('val.xyz', index=":")
     test_molecules_temp = read(TEST_DATA_PATH, index=":") 
-    all_molecules = invivo + test_molecules_temp
+    all_molecules = train_molecules_temp + val_molecules_temp + test_molecules_temp
     species = set([atom for structure in all_molecules for atom in structure.get_chemical_symbols()])
-    del invivo, all_molecules, test_molecules_temp
+    del all_molecules, train_molecules_temp, val_molecules_temp, test_molecules_temp
     gc.collect()
 except FileNotFoundError:
-    print("FATAL ERROR: Az adatok (.xyz fájlok) nem találhatók a megadott útvonalakon.")
+    print("FATAL ERROR: The data (.xyz files) cannot be found in the specified paths.")
     sys.exit(1)
 
 soap_calculator = SOAP(
@@ -57,10 +59,10 @@ soap_calculator = SOAP(
     average='off', dtype="float32", sparse=True
 )
 
-# --- 3. CUSTOM OBJECTIVE ÉS EVALUATION FÜGGVÉNYEK (Eredeti) ---
+# --- 3. CUSTOM OBJECTIVE AND EVALUATION FUNCTIONS ---
 
 def custom_energy_loss_with_penalty(preds: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[np.ndarray, np.ndarray]:
-    """Egyéni Loss függvény a molekuláris energia és a variancia büntetéssel."""
+    """Custom Loss function with molecular energy and variance penalty."""
     y_true = dtrain.get_label()
     groups = dtrain.get_group()
     current_idx = 0
@@ -72,13 +74,13 @@ def custom_energy_loss_with_penalty(preds: np.ndarray, dtrain: xgb.DMatrix) -> T
         mol_preds = preds[current_idx : current_idx + group_size]
         mol_y_true = y_true[current_idx]
 
-        # Energiaösszegzési hiba (MSE)
+        # Energy summation error (MSE)
         mol_pred_sum = np.sum(mol_preds)
         error = mol_pred_sum - mol_y_true
         grad_val = 2 * error
         hess_val = 2
 
-        # Diverzitási büntetés (Penalty)
+        # Diversity Penalty (not neccessary)
         if penalty_lambda != 0 and group_size > 1:
             mean_preds = np.mean(mol_preds)
             grad_penalty = -2.0 * (mol_preds - mean_preds) / group_size
@@ -108,25 +110,24 @@ def custom_molecular_rmse(preds: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[str, 
         current_idx += group_size
     return 'molecular_rmse', np.sqrt(mean_squared_error(y_true_totals, pred_totals))
 
-# --- 4. MAXIMÁLISAN MEMÓRIAKÍMÉLŐ ADAT ELŐKÉSZÍTŐ FÜGGVÉNY (OOC) ---
+# --- 4. DATA PREPARATION FUNCTION ---
 
 def prepare_data_ooc(molecules: List[Atoms], soap_calculator: SOAP):
     """  
-    Kiszámolja a SOAP-ot MOLEKULÁNKÉNT, és építi fel a Sparse DMatrix-et.  
+    Calculates SOAP PER MOLECULE and builds Sparse DMatrix.  
     """
     X_list_sparse = []
     y_total_list = []
     group_sizes = []
 
-    # print(f"    SOAP számítása {len(molecules)} molekulára...") # Kikommentelve, hogy ne zavarja az időmérést
 
     for mol_idx, mol in enumerate(molecules):
-        # 1. Generálás
+        # 1. Generation
         mol_soap_sparse = soap_calculator.create(mol, n_jobs=N_JOBS)
         if not isinstance(mol_soap_sparse, csr_matrix):
             mol_soap_sparse = mol_soap_sparse.tocsr()
 
-        # 2. Normalizáció
+        # 2. Normalization
         row_norms = sparse_norm(mol_soap_sparse, axis=1)
         row_norms[row_norms == 0] = 1.0
         reciprocal_norms = 1.0 / row_norms
@@ -136,18 +137,18 @@ def prepare_data_ooc(molecules: List[Atoms], soap_calculator: SOAP):
                                          shape=(mol_soap_sparse.shape[0], mol_soap_sparse.shape[0]))
         mol_soap_normalized = normalizer_matrix @ mol_soap_sparse
 
-        # 3. Hozzáadás
+        # 3. Add
         X_list_sparse.append(mol_soap_normalized)
 
-        # 4. Y adatok és csoportméretek
+        # 4. Y data and group sizes
         n_atoms = len(mol)
         y_total_list.extend([mol.info['energy']] * n_atoms)
         group_sizes.append(n_atoms)
 
-        # 5. AZONNALI FELSZABADÍTÁS
+        # 5. INSTANT RELEASE
         del mol_soap_sparse, mol_soap_normalized
 
-    # Összes sparse mátrix vertikális összerakása
+    # Vertically stacking all sparse matrices
     X_full_sparse = sparse_vstack(X_list_sparse, format='csr')
     y_full = np.array(y_total_list, dtype=np.float32)
 
@@ -159,18 +160,18 @@ def prepare_data_ooc(molecules: List[Atoms], soap_calculator: SOAP):
 
     return dmatrix, group_sizes
 
-# --- 5. FŐ VÉGREHAJTÓ LOGIKA (A Grid Task) ---
+# --- 5. MAIN EXECUTION LOGIC (A Grid Task) ---
 
 def run_single_job(g: int):
     
-    # ------------------ TRÉNING / VALIDÁCIÓS FÁZIS -------------------
+    # ------------------ TRAINING / VALIDATION PHASE -------------------
 
     # 1. Train Data Load
     t_train_load_start = time.time()
-    train_molecules = read(f'/home/adam/compatible_invivo_vitro/data_splits/in-vivo_train{g}.xyz', index=":")
+    train_molecules = read(f'train{g}.xyz', index=":")
     t_train_load_end = time.time()
 
-    # 2. Train SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 2. Train SOAP + DMatrix Prep
     t_train_soap_start = time.time()
     dtrain, train_groups = prepare_data_ooc(train_molecules, soap_calculator)
     t_train_soap_end = time.time()
@@ -179,20 +180,20 @@ def run_single_job(g: int):
 
     # 3. Validation Data Load
     t_val_load_start = time.time()
-    val_molecules = read(f'/home/adam/compatible_invivo_vitro/data_splits/in-vivo_val{g}.xyz', index=":")
+    val_molecules = read(f'val{g}.xyz', index=":")
     t_val_load_end = time.time()
     
-    # 4. Validation SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 4. Validation SOAP + DMatrix Prep
     t_val_soap_start = time.time()
     dval, val_groups = prepare_data_ooc(val_molecules, soap_calculator)
     t_val_soap_end = time.time()
     
     del val_molecules; gc.collect() 
 
-    # 5. Modell Betanítás (Tréning)
+    # 5. Modell Training
     params = {
         "tree_method": "hist", "max_depth": 7, "learning_rate": 0.015, "gamma": 1,
-        "min_child_weight": 3, "subsample": 0.75, "colsample_bytree": 1,  #0.75
+        "min_child_weight": 3, "subsample": 0.75, "colsample_bytree": 1,  
         "reg_alpha": 0, "reg_lambda": 1, "random_state": 0, "n_jobs": N_JOBS,
     }
     t_model_train_start = time.time()
@@ -204,14 +205,14 @@ def run_single_job(g: int):
     del dtrain, dval; gc.collect()
 
 
-    # ------------------ TESZT FÁZIS -------------------
+    # ------------------ TESTING PHASE -------------------
 
-    # 6. TEST ADAT BETÖLTÉS 
+    # 6. TEST DATA LOAD
     t_test_load_start = time.time()
-    test_molecules_full = read(TEST_DATA_PATH, index=":") 
+    test_molecules_full = read(TEST_DATA_PATH, index=":") # or if more testing files test_molecules_full = read(f'test{g}.xyz', index=":")
     t_test_load_end = time.time()
 
-    # 7. TEST SOAP KISZÁMÍTÁSA + DMatrix Prep
+    # 7. TEST SOAP + DMatrix Prep
     t_test_soap_start = time.time() 
     dtest, test_groups = prepare_data_ooc(test_molecules_full, soap_calculator)
     t_test_soap_end = time.time() 
@@ -234,12 +235,12 @@ def run_single_job(g: int):
     current_test_rmse = np.sqrt(mean_squared_error(test_true_totals, test_pred_totals))
     t_rmse_end = time.time() 
     
-    # ------------------ MENTÉS FÁZIS -------------------
+    # ------------------ SAVING PHASE -------------------
 
-    # 10. EREDMÉNYEK MENTÉSE (Log, CSV, Atomic)
+    # 10. RESULTS SAVE (Log, CSV, Atomic)
     t_save_start = time.time() 
 
-    # 1. Log fájl (Összefoglaló + Idők)
+    # 1. Log files (Summary + Time)
     output_log_filename = os.path.join(OUTPUT_BASE_FOLDER, f"log_{FILE_TAG}.log")
     with open(output_log_filename, "w") as f:
         f.write(f"Parameters: R={R}, N={N}, L={L}, S={S}, Split={G}\n")
@@ -257,7 +258,7 @@ def run_single_job(g: int):
         f.write(f" 8. Test Prediction: {t_pred_end - t_pred_start:.4f}\n")
         f.write(f" 9. Test RMSE Calculation: {t_rmse_end - t_rmse_start:.4f}\n")
     
-    # 2. CSV Fájl (Molekulánkénti predikció)
+    # 2. CSV Files (Molecule prediction)
     output_csv_filename = os.path.join(OUTPUT_BASE_FOLDER, f"predictions_{FILE_TAG}.csv")
     with open(output_csv_filename, "w") as f:
         f.write("name;expected;predicted\n")
@@ -268,7 +269,7 @@ def run_single_job(g: int):
             f.write(f"{mol.info.get('name', 'N/A')};{mol.info['energy']:.4f};{predicted_total:.4f}\n")
             current_idx += group_size
             
-    # 3. Atomi hozzájárulások mentése
+    # 3. Atomic contribution
     output_atomic_filename = os.path.join(OUTPUT_BASE_FOLDER, f"atomic_preds_{FILE_TAG}.txt")
     with open(output_atomic_filename, "w") as f:
         f.write(f"--- Atomic Contributions for {FILE_TAG} ---\n")
@@ -283,7 +284,7 @@ def run_single_job(g: int):
 
     t_save_end = time.time()
     
-    # Log frissítése a mentési idővel
+    # Update log with save time
     with open(output_log_filename, "a") as f:
          f.write(f"10. File Saving (CSV, Log, Atomic): {t_save_end - t_save_start:.4f}\n")
     
