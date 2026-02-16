@@ -19,7 +19,11 @@ sbatch atomic_xgb.sh
 
 ## Scripts
 
-* `atomic_xgb.py` Atomic based model. Uses a custom loss function to distribute the molecular energy.
+* `atomic_xgb.py` Atomic based model. The model examines the local environment of each atom. During training, a custom loss function (`custom_energy_loss_with_penalty`) is used:
+** The model predicts atomic energies.
+** The error is the difference between the sum of the predicted atomic energies and the true molecular energy.
+** It is also possible to add a diversity penalty.
+  
 * `mol_xgb.py` Molecular based model. Uses averaged SOAP vectors (average='outer').
 * `atomic_grid.sh` Slurm script to run grid search of the atomic model.
 * `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
