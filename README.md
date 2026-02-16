@@ -28,4 +28,10 @@ sbatch atomic_xgb.sh
 * `atomic_grid.sh` Slurm script to run grid search of the atomic model.
 * `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
 
-#
+## Output
+
+After each run, the following files are generated:
+* `log_*.log`: Detailed time measurements and the final RMSE value.
+* `predictions_*.csv`: Expected vs. predicted energy per molecule (`name;expected;predicted`)
+* `atomic_preds_*.txt`: (Atomic model only) Energy breakdown by atomic type per molecule.
+
