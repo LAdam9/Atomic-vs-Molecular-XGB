@@ -18,9 +18,10 @@ sbatch atomic_xgb.sh
 ```
 
 ## Scripts
+
 * `atomic_xgb.py` Atomic based model. Uses a custom loss function to distribute the molecular energy.
 * `mol_xgb.py` Molecular based model. Uses averaged SOAP vectors (average='outer').
 * `atomic_grid.sh` Slurm script to run grid search of the atomic model.
 * `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
 
-  #
+#
