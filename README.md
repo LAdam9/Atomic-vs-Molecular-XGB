@@ -8,3 +8,4 @@ The recommended runtime is the `Singularity` container used in the project or th
 pip install numpy xgboost dscribe ase scikit-learn scipy
 python atomic_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>
 ```
+#
