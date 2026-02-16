@@ -11,11 +11,11 @@ pip install numpy xgboost dscribe ase scikit-learn scipy
 ```
    In this case, simply replace the `singularity exec ...` python command in the Slurm scripts with a direct `python` call.
 
-##### Local execution: 
+#### Local execution: 
 ```
 python atomic_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>
 ```
-##### HPC / Slurm Run
+#### HPC / Slurm Run
 Scripts automatically handle the calculation of parameter combinations based on `SLURM_ARRAY_TASK_ID`:
 ```
 sbatch atomic_xgb.sh
