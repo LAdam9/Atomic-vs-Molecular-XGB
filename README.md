@@ -3,10 +3,11 @@
 This project is used to predict the energy of molecular systems using SOAP (Smooth Overlap of Atomic Positions) descriptors and XGBoost (Gradient Boosting). The code supports atomic-level energy resolution and SOAP parameter optimization on clusters (Grid Search).
 
 ## Installation and Usage
-The recommended runtime is the `Singularity` container used in the project or the following Python packages:
+The scripts in the project use the `singularity` container. You can change it to any other coantainer with the recuired libraries and modules or install the following Python packages:
 ```
 pip install numpy xgboost dscribe ase scikit-learn scipy
 ```
+
 ##### Local execution:
 ```
 python atomic_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>
