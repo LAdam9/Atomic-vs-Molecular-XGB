@@ -28,7 +28,7 @@ sbatch atomic_xgb.sh
     * The error is the difference between the sum of the predicted atomic energies and the true molecular energy.
     * It is also possible to add a diversity penalty.
   
-* `mol_xgb.py` Molecular based model. Uses averaged SOAP vectors (average='outer').
+* `mol_xgb.py` Molecular based model. Uses averaged SOAP vectors (`average='outer'`).
 * `atomic_grid.sh` Slurm script to run grid search of the atomic model.
 * `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
 
