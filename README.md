@@ -6,4 +6,5 @@ This project is used to predict the energy of molecular systems using SOAP (Smoo
 The recommended runtime is the `Singularity` container used in the project or the following Python packages:
 ```
 pip install numpy xgboost dscribe ase scikit-learn scipy
+python atomic_xgb.py <rcut> <nmax> <lmax> <sigma> <split_id>
 ```
