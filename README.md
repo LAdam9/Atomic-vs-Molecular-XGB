@@ -9,7 +9,7 @@ The scripts in this project are configured to run using a `singularity` containe
 ```
 pip install numpy xgboost dscribe ase scikit-learn scipy
 ```
-In this case, simply replace the `singularity exec ...` python command in the Slurm scripts with a direct `python` call.
+   In this case, simply replace the `singularity exec ...` python command in the Slurm scripts with a direct `python` call.
 
 ##### Local execution:
 ```
