@@ -3,10 +3,13 @@
 This project is used to predict the energy of molecular systems using SOAP (Smooth Overlap of Atomic Positions) descriptors and XGBoost (Gradient Boosting). The code supports atomic-level energy resolution and SOAP parameter optimization on clusters (Grid Search).
 
 ## Installation and Usage
-The scripts in the project use the `singularity` container. You can change it to any other coantainer with the recuired libraries and modules or install the following Python packages:
+The scripts in this project are configured to run using a `singularity` container. However, you can adapt the execution to your specific environment:
+* Using a different container: Replace the container path in the Slurm (`.sh`) scripts with your own that includes the required libraries.
+* Using a local environment: If you prefer not to use a container, ensure you have the following Python packages installed:
 ```
 pip install numpy xgboost dscribe ase scikit-learn scipy
 ```
+In this case, simply replace the `singularity exec ...` python command in the Slurm scripts with a direct `python` call.
 
 ##### Local execution:
 ```
