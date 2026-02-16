@@ -33,7 +33,7 @@ sbatch atomic_xgb.sh
 * `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
 
 ## Input
-The scripts expect molecular geometries in `.xyz` format with keys `name` and `energy`  in the comment line.
+The scripts expect molecular geometries in `.xyz` format (`train{split}.xyz`, `val{split}.xyz`, `test{split}.xyz` or just one `test.xyz` file, `split=1,2,3,...`) with keys `name` and `energy`  in the comment line.
 
 ## Output
 
