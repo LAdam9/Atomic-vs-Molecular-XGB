@@ -29,8 +29,8 @@ sbatch atomic_xgb.sh
     * It is also possible to add a diversity penalty.
   
 * `mol_xgb.py` Molecular based model. Uses averaged SOAP vectors (`average='outer'`).
-* `atomic_grid.sh` Slurm script to run grid search of the atomic model.
-* `mol_avg_grid.sh` Slurm script to run grid search of the averaged molecular model.
+* `atomic_xgb.sh` Slurm script to run grid search of the atomic model.
+* `mol_xgb.sh` Slurm script to run grid search of the averaged molecular model.
 
 ## Input
 The scripts expect molecular geometries in `.xyz` format (`train{split}.xyz`, `val{split}.xyz`, `test{split}.xyz` or just one `test.xyz` file, `split=1,2,3,...`) with keys `name` and `energy`  in the comment line.
