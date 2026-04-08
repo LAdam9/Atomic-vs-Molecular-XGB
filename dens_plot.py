@@ -152,3 +152,4 @@ def process_and_plot_folder(folder_path, filter_set=None):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         process_and_plot_folder(sys.argv[1], None)
+    print("Usage: python dens_plot.py /path/directory")
