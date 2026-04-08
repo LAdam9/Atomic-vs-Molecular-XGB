@@ -45,5 +45,5 @@ After each run, the following files are generated:
 ## Analysis
 * `ds_error_graph.py`: Visualizes error metrics (MSE, RE, Std Dev) across $DS_{exp}$ intervals for all predictions in a target folder.
 * `atom_error_graph.py`: Visualizes error metrics (MSE, RE, Std Dev) across the interval of the number of atoms of molecules for all predictions in a target folder. The script requires an auxiliary CSV file to map molecules to their respective atom counts. This file must follow a semicolon-separated format: `name;n_atoms`. It contains information about every molecules in every testing sets.
-*`violin_plot.py`: Creates a violin plot of misclassified predictions based on a user defined threshold.
-*`dens_plot.py`: Creates a normalized density plot of the predictions
+* `violin_plot.py`: Creates a violin plot of misclassified predictions based on a user defined threshold.
+* `dens_plot.py`: Creates a normalized density plot of the predictions.
