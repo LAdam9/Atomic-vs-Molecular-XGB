@@ -42,3 +42,6 @@ After each run, the following files are generated:
 * `predictions_*.csv`: Expected vs. predicted energy per molecule (`name;expected;predicted`)
 * `atomic_preds_*.txt`: (Atomic model only) Energy breakdown by atomic type per molecule.
 
+## Analysis
+* `ds_error_graph.py`: Makes a graph of different error metrics (MSE, RE, std dev) based on DSexp intervals. The input is the folder where the predictions_*.csv files are
+
