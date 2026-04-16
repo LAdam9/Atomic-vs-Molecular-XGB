@@ -22,46 +22,51 @@ border_labels = [str(b) for b in bins]
 
 FILE_PATH_TEMPLATE = os.path.join('.', '{F:02d}', '{F:02d}.csv')
 
-
 def load_and_average_predictions(folder_path, ordered_labels, bins):
-
-    base_df = None
-    valid_splits = 0
+    preds_acc = {} 
+    exp_vals = {}  
 
     csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
+    
+    if not csv_files:
+        raise FileNotFoundError(f"There is no CSV file in the folder: {folder_path}")
 
     for file_path in csv_files:
         try:
             df_k = pd.read_csv(file_path, sep=';', header=0)
-
-
             if df_k.empty:
                 continue
 
-            df_k = df_k.set_index('name')
+            for _, row in df_k.iterrows():
+                name = str(row['name'])
+                expected = float(row['expected'])
+                predicted = float(row['predicted'])
 
-            if base_df is None:
-                base_df = df_k[['expected']].copy()
-                base_df['expected'] = base_df['expected'].astype(float)
-                base_df['summed_predicted'] = 0.0
-
-            common_index = base_df.index.intersection(df_k.index)
-            base_df = base_df.loc[common_index]
-            df_k = df_k.loc[common_index]
-
-            base_df['summed_predicted'] += df_k['predicted'].astype(float)
-            valid_splits += 1
+                if name not in preds_acc:
+                    preds_acc[name] = []
+                    exp_vals[name] = expected
+                
+                preds_acc[name].append(predicted)
 
         except Exception as e:
-            print(f"Error by '{file_path}' file: {e}")
+            print(f"Error processing file '{file_path}': {e}")
             continue
 
-    if valid_splits == 0:
-        raise FileNotFoundError(f"There is no valid CSV in the folder: {folder_path}")
+   
+    results = []
+    for name, v_list in preds_acc.items():
+        results.append({
+            'name': name,
+            'expected': exp_vals[name],
+            'predicted': np.mean(v_list) 
+        })
 
-    df_final = base_df.reset_index()
-    df_final['predicted'] = df_final['summed_predicted'] / valid_splits
+    df_final = pd.DataFrame(results)
 
+    if df_final.empty:
+        raise ValueError("There is no data left to process!")
+
+    # Bin-elés és hiba számítás (marad az eredeti logika szerint)
     df_final['absolute_error'] = (df_final['expected'] - df_final['predicted']).abs()
     df_final['expected_bin'] = pd.cut(df_final['expected'], bins=bins, labels=ordered_labels, right=False)
     df_final['expected_bin'] = pd.Categorical(df_final['expected_bin'], categories=ordered_labels, ordered=True)
