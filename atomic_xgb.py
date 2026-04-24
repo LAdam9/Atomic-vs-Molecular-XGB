@@ -71,14 +71,15 @@ def custom_energy_loss_with_penalty(preds: np.ndarray, dtrain: xgb.DMatrix) -> T
     penalty_lambda = LAMBDA
 
     for group_size in groups:
+        N = float(group_size)
         mol_preds = preds[current_idx : current_idx + group_size]
         mol_y_true = y_true[current_idx]
 
         # Energy summation error (MSE)
         mol_pred_sum = np.sum(mol_preds)
         error = mol_pred_sum - mol_y_true
-        grad_val = 2 * error
-        hess_val = 2
+        grad_val = 2 * error / N
+        hess_val = 2 / N
 
         # Diversity Penalty (not neccessary)
         if penalty_lambda != 0 and group_size > 1:
