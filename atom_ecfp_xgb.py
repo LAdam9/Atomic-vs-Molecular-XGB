@@ -11,15 +11,15 @@ import gc
 import pandas as pd
 import sys
 
-# --- GLOBÁLIS KONFIGURÁCIÓ ÉS PARANCSSORI BEOLVASÁS ---
+# --- GLOBAL CONFIGURATION AND COMMAND-LINE SCANNING ---
 
-OUTPUT_BASE_FOLDER = "/home/adam/Chemprop/new_atom_mol/atom_feature/morgan_based/xgb/atom"
+OUTPUT_BASE_FOLDER = "OUT_FOLDER"
 os.makedirs(OUTPUT_BASE_FOLDER, exist_ok=True)
 LAMBDA = 0
 N_JOBS = 8
-FP_SIZE = 2048#256  # Atomi Morgan vektor hossza
+FP_SIZE = 2048
 
-# 1. PARAMÉTEREK BEOLVASÁSA (<morgan_radius> <split_id>)
+# 1. READING PARAMETERS (<morgan_radius> <split_id>)
 if len(sys.argv) != 3:
     print("FATAL ERROR: A szükséges 2 parancssori argumentum hiányzik.")
     print("Használat: python morgan_xgb_grid.py <morgan_radius> <split_id>")
@@ -35,7 +35,7 @@ except ValueError:
 FILE_TAG = f"morgan_rad{RADIUS}_split{G}_2048fp"
 print(f"--- Starting Morgan-XGBoost Job: {FILE_TAG} ---")
 
-# --- 2. EGYÉNI ATOMI MORGAN FEATURIZER OSZTÁLY ---
+# --- 2. INDIVIDUAL ATOMIC MORGAN FEATURIZER CLASS ---
 class MorganAtomFeaturizer:
     def __init__(self, radius: int = 2, fp_size: int = 256):
         self.radius = radius
@@ -43,7 +43,6 @@ class MorganAtomFeaturizer:
         self.generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=fp_size)
 
     def __call__(self, mol: Chem.Mol) -> np.ndarray:
-        """Kiszámolja a Morgan featurizert minden egyes atomra a molekulában."""
         n_atoms = mol.GetNumAtoms()
         atom_features = np.zeros((n_atoms, self.fp_size), dtype=np.float32)
 
@@ -57,10 +56,10 @@ class MorganAtomFeaturizer:
 
 atom_featurizer = MorganAtomFeaturizer(radius=RADIUS, fp_size=FP_SIZE)
 
-# --- 3. CUSTOM OBJECTIVE ÉS EVALUATION FÜGGVÉNYEK ---
+# --- 3. CUSTOM OBJECTIVE AND EVALUATION FUNCTION ---
 
 def custom_energy_loss_with_penalty(preds: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[np.ndarray, np.ndarray]:
-    """Egyéni Loss függvény a molekuláris energia és a variancia büntetéssel."""
+
     y_true = dtrain.get_label()
     groups = dtrain.get_group()
     current_idx = 0
@@ -72,13 +71,13 @@ def custom_energy_loss_with_penalty(preds: np.ndarray, dtrain: xgb.DMatrix) -> T
         mol_preds = preds[current_idx : current_idx + group_size]
         mol_y_true = y_true[current_idx]
 
-        # Energiaösszegzési hiba (MSE)
+        
         mol_pred_sum = np.sum(mol_preds)
         error = mol_pred_sum - mol_y_true
-        grad_val = 2 * error #/ group_size
-        hess_val = 2 #/ group_size
+        grad_val = 2 * error 
+        hess_val = 2 
 
-        # Diverzitási büntetés (Penalty)
+        
         if penalty_lambda != 0 and group_size > 1:
             mean_preds = np.mean(mol_preds)
             grad_penalty = -2.0 * (mol_preds - mean_preds) / group_size
@@ -108,17 +107,16 @@ def custom_molecular_rmse(preds: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[str, 
         current_idx += group_size
     return 'molecular_rmse', np.sqrt(mean_squared_error(y_true_totals, pred_totals))
 
-# --- 4. ADAT ELŐKÉSZÍTŐ FÜGGVÉNY CSV/SMILES ALAPJÁN ---
+# --- 4. DATA PREPARATION FUNCTION BASED ON CSV/SMILES ---
 
 def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
-    """Beolvassa a CSV-t, kiszámolja a Morgan atomi leírókat, és építi az XGBoost DMatrix-et."""
     if not os.path.exists(csv_path):
         print(f"FATAL ERROR: A fájl nem található: {csv_path}")
         sys.exit(1)
 
     df = pd.read_csv(csv_path)
     if "smiles" not in df.columns or "vina_energy" not in df.columns:
-        print(f"FATAL ERROR: A CSV-ből hiányzik a 'smiles' vagy a 'vina_energy' oszlop!")
+        print(f"FATAL ERROR: The 'smiles' or 'energy' column is missing from the CSV!")
         sys.exit(1)
 
     X_list = []
@@ -142,12 +140,11 @@ def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
             y_total_list.extend([energy] * n_atoms)
             group_sizes.append(n_atoms)
 
-            # Molekula név megőrzése, ha van a CSV-ben, különben N/A
             mol_name = row.get("name", "N/A")
             valid_molecules_info.append({"smiles": smi_str, "energy": energy, "name": mol_name})
 
     if len(group_sizes) == 0:
-        print("FATAL ERROR: Egyetlen érvényes molekula sem maradt a fájlban!")
+        print("FATAL ERROR: Not a single valid molecule remained in the file!")
         sys.exit(1)
 
     X_full = np.vstack(X_list)
@@ -158,17 +155,17 @@ def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
 
     return dmatrix, group_sizes, valid_molecules_info
 
-# --- 5. FŐ VÉGREHAJTÓ LOGIKA ---
+# --- 5. MAIN EXECUTION LOGIC ---
 
 TEST_FILES = [
-    '/home/adam/Chemprop/atom_sum/in-vitro_test_chem.csv'  # Itt adhatod meg a teszt CSV-det
+    'test.csv'  
 ]
 
 def run_single_job(g: int):
-    # --- TRÉNING ÉS VALIDÁCIÓS ADATOK ELŐKÉSZÍTÉSE IDŐMÉRÉSEL ---
+    # --- PREPARATION OF TRAINING AND VALIDATION DATA WITH TIMING ---
 
     t_train_load_start = time.time()
-    train_csv = f'/home/adam/Chemprop/atom_sum/in-vivo_train{g}_chem.csv'
+    train_csv = f'train{g}.csv'
     t_train_load_end = time.time()
 
     t_train_feat_start = time.time()
@@ -176,7 +173,7 @@ def run_single_job(g: int):
     t_train_feat_end = time.time()
 
     t_val_load_start = time.time()
-    val_csv = f'/home/adam/Chemprop/atom_sum/in-vivo_val{g}_chem.csv'
+    val_csv = f'val{g}.csv'
     t_val_load_end = time.time()
 
     t_val_feat_start = time.time()
@@ -191,9 +188,8 @@ def run_single_job(g: int):
     }
 
 
-
     t_model_train_start = time.time()
-    print("Modell tanításának indítása...")
+    print("Starting model training...")
     model = xgb.train(params, dtrain, num_boost_round=5000, obj=custom_energy_loss_with_penalty,
                       evals=[(dval, 'validation')], feval=custom_molecular_rmse,
                       early_stopping_rounds=20, verbose_eval=50)
@@ -201,13 +197,13 @@ def run_single_job(g: int):
 
     del dtrain, dval; gc.collect()
 
-    # --- CIKLUS A TESZT FÁJL(OK)RA ---
+    # --- LOOP OVER TEST FILE(S) ---
     for test_path in TEST_FILES:
         test_name = os.path.basename(test_path).replace(".csv", "")
         print(f"--- Running Inference on: {test_name} ---")
 
         t_test_load_start = time.time()
-        t_test_load_end = time.time() # CSV beolvasás a prepare_data-ban történik
+        t_test_load_end = time.time() 
 
         t_test_feat_start = time.time()
         dtest, test_groups, test_mol_infos = prepare_data_from_csv(test_path, atom_featurizer)
@@ -229,10 +225,9 @@ def run_single_job(g: int):
         current_test_rmse = np.sqrt(mean_squared_error(test_true_totals, test_pred_totals))
         t_rmse_end = time.time()
 
-        # --- MENTÉS ÉS LOGOLÁS ---
         t_save_start = time.time()
 
-        # 1. Log Fájl (Időkkel és statisztikákkal)
+        # 1. Log File (with timestamps and statistics)
         output_log_filename = os.path.join(OUTPUT_BASE_FOLDER, f"log_{FILE_TAG}_{test_name}.log")
         with open(output_log_filename, "w") as f:
             f.write(f"Test Set: {test_name}\n")
@@ -250,17 +245,16 @@ def run_single_job(g: int):
             f.write(f" 8. Test Prediction: {t_pred_end - t_pred_start:.4f}\n")
             f.write(f" 9. Test RMSE Calculation: {t_rmse_end - t_rmse_start:.4f}\n")
 
-        # 2. CSV Fájl (Molekulánkénti predikciók)
+        # 2. CSV File (Predictions per molecule)
         output_csv_filename = os.path.join(OUTPUT_BASE_FOLDER, f"predictions_{FILE_TAG}_{test_name}.csv")
         df_res = pd.DataFrame({
-            #"name": [info['name'] for info in test_mol_infos],
             "smiles": [info['smiles'] for info in test_mol_infos],
             "expected": test_true_totals,
             "predicted": test_pred_totals
         })
         df_res.to_csv(output_csv_filename, sep=";", index=False)
 
-        # 3. Atomi hozzájárulások TXT Fájl
+        # 3. Atomic Contributions TXT File
         output_atomic_filename = os.path.join(OUTPUT_BASE_FOLDER, f"atomic_preds_{FILE_TAG}_{test_name}.txt")
         with open(output_atomic_filename, "w") as f:
             f.write(f"--- Atomic Contributions for {FILE_TAG} on {test_name} ---\n")
