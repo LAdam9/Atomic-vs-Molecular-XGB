@@ -27,13 +27,18 @@ sbatch atomic_xgb.sh
     * The model predicts atomic energies.
     * The error is the difference between the sum of the predicted atomic energies and the true molecular energy.
     * It is also possible to add a diversity penalty.
+* `atomic_ecfp_xgb.py`: Atomic based model with ECFP 2D descriptor. Logic is the same as in the case of `atomic_xgb.py` script.
 * `atomic_xgb_avgloss.py`: Atomic based model where the molecular prediction is the average atomic predictions.
+* `atomic_ecfp_xgb_avgloss.py`: Atomic based model with ECFP 2D descriptor where the molecular prediction is the average atomic predictions.
 * `mol_xgb.py`: Molecular based model. Uses averaged SOAP vectors (`average='outer'`).
+* `mol_ecfp_xgb.py`: Molecular based model. Uses ECFP descriptor.
 * `atomic_xgb.sh`: Slurm script to run grid search of the atomic model.
 * `mol_xgb.sh`: Slurm script to run grid search of the averaged molecular model.
+* `smiles_to_3D_xyz.py`: Script for generating 3D xyz geometries from SMILES
 
 ## Input
-The scripts expect molecular geometries in `.xyz` format (`train{split}.xyz`, `val{split}.xyz`, `test{split}.xyz` or just one `test.xyz` file (`split=1,2,3,...`) with keys `name` and `energy`  in the comment line.
+The SOAP descriptor based scripts expect molecular geometries in `.xyz` format (`train{split}.xyz`, `val{split}.xyz`, `test{split}.xyz` or just one `test.xyz` file (`split=1,2,3,...`)) with keys `name` and `energy`  in the comment line.
+The ECFP descriptor based scripts expect molecular data in `.csv` format (`train{split}.csv`, `val{split}.csv`, `test{split}.csv` or just one `test.csv` file (`split=1,2,3,...`)) with header keys `name`, `smiles` and `energy`.
 
 ## Output
 
