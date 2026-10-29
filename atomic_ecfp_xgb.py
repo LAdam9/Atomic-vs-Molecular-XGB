@@ -21,15 +21,15 @@ FP_SIZE = 2048
 
 # 1. READING PARAMETERS (<morgan_radius> <split_id>)
 if len(sys.argv) != 3:
-    print("FATAL ERROR: A szükséges 2 parancssori argumentum hiányzik.")
-    print("Használat: python morgan_xgb_grid.py <morgan_radius> <split_id>")
+    print("FATAL ERROR: The required 2 command-line arguments are missing.")
+    print("Usage: python morgan_xgb_grid.py <morgan_radius> <split_id>")
     sys.exit(1)
 
 try:
     RADIUS = int(sys.argv[1])
     G = int(sys.argv[2])
 except ValueError:
-    print("FATAL ERROR: A paraméterek érvénytelenek (típushiba).")
+    print("FATAL ERROR: Parameters are invalid (type error).")
     sys.exit(1)
 
 FILE_TAG = f"morgan_rad{RADIUS}_split{G}_2048fp"
@@ -111,11 +111,11 @@ def custom_molecular_rmse(preds: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[str, 
 
 def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
     if not os.path.exists(csv_path):
-        print(f"FATAL ERROR: A fájl nem található: {csv_path}")
+        print(f"FATAL ERROR: File not found: {csv_path}")
         sys.exit(1)
 
     df = pd.read_csv(csv_path)
-    if "smiles" not in df.columns or "vina_energy" not in df.columns:
+    if "smiles" not in df.columns or "energy" not in df.columns:
         print(f"FATAL ERROR: The 'smiles' or 'energy' column is missing from the CSV!")
         sys.exit(1)
 
@@ -126,7 +126,7 @@ def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
 
     for _, row in df.iterrows():
         smi_str = str(row["smiles"]).strip()
-        energy = float(row["vina_energy"])
+        energy = float(row["energy"])
 
         if pd.isna(energy):
             continue
