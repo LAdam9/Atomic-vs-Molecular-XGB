@@ -120,7 +120,7 @@ def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
         sys.exit(1)
 
     df = pd.read_csv(csv_path)
-    if "smiles" not in df.columns or "vina_energy" not in df.columns:
+    if "smiles" not in df.columns or "energy" not in df.columns:
         print(f"FATAL ERROR: The 'smiles' or 'energy' column is missing from the CSV!")
         sys.exit(1)
 
@@ -131,7 +131,7 @@ def prepare_data_from_csv(csv_path: str, featurizer: MorganAtomFeaturizer):
 
     for _, row in df.iterrows():
         smi_str = str(row["smiles"]).strip()
-        energy = float(row["vina_energy"])
+        energy = float(row["energy"])
 
         if pd.isna(energy):
             continue
